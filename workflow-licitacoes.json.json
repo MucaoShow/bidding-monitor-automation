@@ -1,0 +1,1196 @@
+{
+  "name": "Bidding Opportunities Monitor",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "4adc2498-c0ec-4972-afce-733954316233",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        496,
+        1536
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "dataPropertyName": "=data",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "dataFechamento",
+              "cssSelector": "span[id*=\":dataEncerramento\"]",
+              "returnArray": true
+            },
+            {
+              "key": "objeto",
+              "cssSelector": "span[id*=\":objeto\"]",
+              "returnArray": true
+            },
+            {
+              "key": "dataAbertura",
+              "cssSelector": "span[id*=\":dataAbertura\"]",
+              "returnArray": true
+            },
+            {
+              "key": "numero",
+              "cssSelector": "span[id*=\":numero\"]",
+              "returnArray": true
+            },
+            {
+              "key": "modalidade",
+              "cssSelector": "span[id*=\":modalidade\"]",
+              "returnArray": true
+            },
+            {
+              "key": "tipoHistorico",
+              "cssSelector": "span[id*=\":tipoHistorico\"]",
+              "returnArray": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "82d9d562-af38-486b-acca-69aa4a4bef45",
+      "name": "Extract Bidding Table",
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        960,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        2288,
+        1008
+      ],
+      "id": "767bcdb7-aa0e-42c4-9c6d-b2276d96a889",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "jsCode": "const keywords = [\n  'válvula',\n  'válvulas',\n  'medição de vazão',\n  'estação de redução',\n  'estações de redução',\n  'conjunto de regulagem',\n  'conjuntos de regulagem',\n  'city gate',\n  'city gates',\n  'pead',\n  'bloqueio automático',\n  'transmissor de pressão',\n  'transmissores de pressão',\n  'transdutor de pressão',\n  'transdutores de pressão',\n  'medidor de vazão',\n  'medidores de vazão',\n  'skid',\n  'cromatógrafo',\n  'gás natural',\n  'montagem',\n  'construção'\n];\n\nfunction norm(v) {\n  return String(v ?? '')\n    .toLowerCase()\n    .normalize('NFD')\n    .replace(/[\\u0300-\\u036f]/g, '')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nconst out = [];\n\nfor (const item of $input.all()) {\n  const j = item.json || {};\n\n  const rawStatus = Array.isArray(j.tipoHistorico) ? j.tipoHistorico[0] : j.tipoHistorico;\n  const status = norm(rawStatus);\n  if (!(status.includes('aberta') || status.includes('aberto'))) continue;\n\n  const texto = norm(j.objeto);\n  const matched = keywords.find(k => texto.includes(norm(k)));\n  if (!matched) continue;\n\n  out.push({\n    json: {\n      empresa: 'MSGÁS',\n      link: 'https://msgas.com.br/chamada-publica/',\n      objetivo: String(j.objeto ?? '').trim(),\n      dataAbertura: String(j.dataAbertura ?? '').trim(),\n      dataFechamento: String(j.dataFechamento ?? '').trim(),\n      numero: String(j.numero ?? '').trim(),\n      status: String(rawStatus ?? '').trim(),\n      disciplina: matched,\n      id: String(j.numero ?? '').trim() || `sem-id-${String(j.dataAbertura ?? '').trim()}`\n    }\n  });\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        1008
+      ],
+      "id": "ab860fd9-3cb4-4efe-a562-ef28ebb8b237",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "jsCode": "const out = [];\n\nfor (let inputIndex = 0; inputIndex < $input.all().length; inputIndex++) {\n  const item = $input.all()[inputIndex];\n  const j = item.json || {};\n\n  const objetos = Array.isArray(j.objeto) ? j.objeto : [j.objeto];\n  const datas = Array.isArray(j.dataAbertura) ? j.dataAbertura : [j.dataAbertura];\n  const numeros = Array.isArray(j.numero) ? j.numero : [j.numero];\n  const modalidades = Array.isArray(j.modalidade) ? j.modalidade : [j.modalidade];\n  const fechamentos = Array.isArray(j.dataFechamento) ? j.dataFechamento : [j.dataFechamento];\n  const statuses = Array.isArray(j.tipoHistorico) ? j.tipoHistorico : [j.tipoHistorico];\n\n  const maxLen = Math.max(objetos.length, datas.length, numeros.length, modalidades.length, fechamentos.length, statuses.length);\n\n  for (let i = 0; i < maxLen; i++) {\n    out.push({\n      json: {\n        empresa: j.empresa ?? '',\n        linkEmpresa: j.linkEmpresa ?? '',\n        objeto: objetos[i] ?? '',\n        dataAbertura: datas[i] ?? '',\n        numero: numeros[i] ?? '',\n        modalidade: modalidades[i] ?? '',\n        dataFechamento: fechamentos[i] ?? '',\n        tipoHistorico: statuses[i] ?? '',\n      },\n      pairedItem: { item: inputIndex },\n    });\n  }\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        1008
+      ],
+      "id": "b7d8be52-2258-48fd-b277-d71a9a3baecf",
+      "name": "Organizar Dados"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "c09bf0f4-0ea9-4cf0-8a1e-8cf8b1cd30fd",
+                    "leftValue": "={{$json.empresa}}",
+                    "rightValue": "SCGAS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "2ab06806-0a39-4220-a66a-61044dab26e5",
+                    "leftValue": "={{ $json.empresa }}",
+                    "rightValue": "GASMIG",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "77b9951a-bb69-4540-9b2d-f81f344bbfc6",
+                    "leftValue": "={{ $json.empresa }}",
+                    "rightValue": "BAHIAGAS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "75d9f54d-8f82-45f8-b880-4ab78cf6da0d",
+                    "leftValue": "={{ $json.empresa }}",
+                    "rightValue": "MTGAS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "5ac05f32-f062-4116-9cf5-d77292959218",
+                    "leftValue": "={{ $json.empresa }}",
+                    "rightValue": "CIGAS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "d43bd39c-00cf-415a-9462-718280d5e100",
+                    "leftValue": "={{ $json.empresa }}",
+                    "rightValue": "FIEB",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "allMatchingOutputs": true
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        512,
+        688
+      ],
+      "id": "d2d4483a-ffef-46d3-a159-968a6097f03e",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "url": "={{$json.linkEmpresa}}",
+        "options": {}
+      },
+      "id": "39725a2f-6af1-4bc1-ab42-f09a5682b675",
+      "name": "Fetch Bidding Opportunities MSGAS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        736,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  { json: { modalidade: \"Concorrência\", codigoModalidadeContratacao: 1 } },\n  { json: { modalidade: \"Concurso\", codigoModalidadeContratacao: 2 } },\n  { json: { modalidade: \"Leilão\", codigoModalidadeContratacao: 3 } },\n  { json: { modalidade: \"Pregão\", codigoModalidadeContratacao: 4 } },\n  { json: { modalidade: \"Dispensa\", codigoModalidadeContratacao: 5 } },\n  { json: { modalidade: \"Inexigibilidade\", codigoModalidadeContratacao: 6 } },\n  { json: { modalidade: \"Manifestação de Interesse\", codigoModalidadeContratacao: 7 } },\n  { json: { modalidade: \"Cotação / Compra Direta\", codigoModalidadeContratacao: 8 } },\n];"
+      },
+      "id": "b0b79356-b66b-459d-840c-9f3f0726d6a8",
+      "name": "Lista Modalidades",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        736,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const empresa = $('Loop Empresas').item.json;\nconst modalidade = $json;\n\nreturn {\n  json: {\n    empresa: empresa.empresa,\n    cnpj: empresa.cnpj,\n    link: empresa.link,\n    modalidade: modalidade.modalidade,\n    codigoModalidadeContratacao: modalidade.codigoModalidadeContratacao,\n    dataInicial: \"20260101\",\n    dataFinal: \"20261231\",\n    pagina: 1\n  }\n};"
+      },
+      "id": "56064572-e573-4ed3-80cd-1c87a047addc",
+      "name": "Combinar Empresa + Modalidade",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        1136
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao?dataInicial={{ $json.dataInicial }}&dataFinal={{ $json.dataFinal }}&codigoModalidadeContratacao={{ $json.codigoModalidadeContratacao }}&cnpj={{ $json.cnpj }}&pagina={{ $json.pagina }}",
+        "options": {}
+      },
+      "id": "a2b514aa-63ab-4c97-9170-d63e598f1d00",
+      "name": "Consulta PNCP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1392,
+        1136
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "83cd7ab6-3798-47d6-b554-9a4610749bc4",
+      "name": "Loop Modalidades",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        944,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "b7b3719d-a5e1-425e-9f7e-b3b66179b904",
+      "name": "Loop Empresas",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        512,
+        1104
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1856,
+        1152
+      ],
+      "id": "051d70c7-217f-4a88-bd6e-be1a7f132fd7",
+      "name": "Wait",
+      "webhookId": "59507f6b-603f-4170-8a89-65ced2edfa00"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  { json: { empresa: \"SCGAS\",   cnpj: \"86864543000172\", link: \"https://www.scgas.com.br\", fonteLicitacao: \"portal_proprio\" } },\n  { json: { empresa: \"CEGAS\",   cnpj: \"73759185000196\", link: \"https://www.cegas.com.br\", fonteLicitacao: \"pncp\" } },\n  { json: { empresa: \"GASMIG\",  cnpj: \"22261473000185\", link: \"https://gasmig.com.br/licitacoes-em-andamento/\", fonteLicitacao: \"portal_proprio\" } },\n  { json: { empresa: \"BAHIAGAS\", cnpj: \"34432153000120\", link: \"https://bahiagas.com.br/licitacoes/\", fonteLicitacao: \"portal_proprio\" } },\n  { json: { empresa: \"MTGAS\",   cnpj: \"06023921000156\", link: \"https://mtgas.com.br\", fonteLicitacao: \"portal_proprio\" } },\n  { json: { empresa: \"MSGAS\",   cnpj: \"02741679000103\", link: \"https://bidding.msgas.com.br\", fonteLicitacao: \"licitacoes_e_bb\" } },\n  { json: { empresa: \"CIGAS\",   cnpj: \"00624964000100\", link: \"https://www.cigas.com.br\", fonteLicitacao: \"portal_proprio\" } },\n  { json: { empresa: \"PARAGAS\", cnpj: \"00535681000192\", link: \"https://www.gasdopara.com.br\", fonteLicitacao: \"pncp\" } },\n  { json: { empresa: \"COMPAGAS\", cnpj: \"00535681000192\", link: \"https://www.compagas.com.br\", fonteLicitacao: \"portal_proprio\" } },\n  { json: { empresa: \"FIEB\",    cnpj: \"\", link: \"https://compras.fieb.org.br\", fonteLicitacao: \"portal_proprio\" } },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        912
+      ],
+      "id": "0c1c6510-547c-4778-a962-d308b54e3027",
+      "name": "Lista Empresas"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.fonteLicitacao }}",
+                    "rightValue": "portal_proprio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "8d1f82f6-97b9-4aff-b902-21faea85583d"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "c09bf0f4-0ea9-4cf0-8a1e-8cf8b1cd30fd",
+                    "leftValue": "={{ $json.fonteLicitacao }}",
+                    "rightValue": "pncp",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "d7e7ea04-ceeb-4b7a-a454-a3f1452f97a3",
+                    "leftValue": "={{ $json.fonteLicitacao }}",
+                    "rightValue": "licitacoes_e_bb",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "allMatchingOutputs": true
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        288,
+        896
+      ],
+      "id": "ff9d4a85-4b3a-442e-91cf-c13bf0fb3578",
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "bcbc3e0d-0b74-4d4b-9786-77676318cab8",
+              "leftValue": true,
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1600,
+        1136
+      ],
+      "id": "428cc941-5cef-40e2-b59f-10038cbade16",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "binaryPropertyName": "scgas_licitacoes.csv",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        944,
+        656
+      ],
+      "id": "29f82033-5d82-4b10-b9a8-726522efd2fd",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.scgas.com.br/scgas/app/csvlicitacoes.aspx",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "*/*"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "palavra_chave"
+            },
+            {
+              "name": "lista_licitacoes",
+              "value": "em-andamento-encerradas"
+            },
+            {
+              "name": "data_de",
+              "value": "2019-01-01"
+            },
+            {
+              "name": "data_ate"
+            },
+            {
+              "name": "natureza"
+            },
+            {
+              "name": "etapa"
+            },
+            {
+              "name": "button2",
+              "value": "CSV"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "scgas_licitacoes.csv"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        736,
+        656
+      ],
+      "id": "82b50f30-11c4-49ff-8fd5-da4d446cdd9b",
+      "name": "HTTP Request SCGAS"
+    },
+    {
+      "parameters": {
+        "jsCode": "const keywords = [\n  'Construção e Montagem',\n  'Instalação de City Gates',\n  'Instalação de Conjuntos de Regulagem',\n  'Instalação de Conjuntos de Regulagem e Medição',\n  'Tubulação',\n  'Serviços de Construção',\n  'Montagem',\n  'Manutenção',\n  'Válvulas Reguladoras',\n  'Válvulas Shutoff',\n  'Válvulas de Segurança',\n  'Corretores de vazão',\n  'Transmissores de pressão',\n  'Transdutores de pressão',\n  'medidores de vazão',\n  'Conjuntos de Regulagem e Medição',\n  'Conjuntos de Regulagem',\n  'Skid de Regulagem e Medição',\n  'City Gates',\n  'Aquecedor de Gás Natural',\n  'Sistemas Filtragem de Gás Natural',\n  'Cromatógrafos'\n];\n\nfunction normalizeText(value) {\n  return String(value || '')\n    .normalize('NFD')\n    .replace(/[\\u0300-\\u036f]/g, '')\n    .toLowerCase()\n    .trim();\n}\n\nconst normalizedKeywords = keywords.map(normalizeText);\n\nconst result = $input.all()\n  .filter(item => {\n    const j = item.json || {};\n    const etapa = normalizeText(j['Etapa']);\n    const tipo = normalizeText(j['Tipo']);\n    const natureza = normalizeText(j['Natureza']);\n    const objeto = normalizeText(j['Objeto']);\n    const dataRaw = String(j['Data de abertura'] || '').trim();\n\n    const parts = dataRaw.split('/');\n    const data = parts.length === 3\n      ? new Date(`${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}T00:00:00`)\n      : null;\n\n    const limite = new Date('2020-01-01T00:00:00');\n\n    return etapa.includes('recebimento de propostas') &&\n      tipo.includes('cotação') &&\n      natureza.includes('serviços') &&\n      data &&\n      data >= limite &&\n      normalizedKeywords.some(k => objeto.includes(k));\n  })\n  .map(item => ({ json: item.json }));\n\nreturn result.length ? result : [{ json: {} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1376,
+        656
+      ],
+      "id": "b7a8967c-c7a5-46c0-a460-c6a8f0892630",
+      "name": "Filter SCGAS"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.link }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        736,
+        848
+      ],
+      "id": "75e0f7e8-e2d3-41dc-bfc8-5b8d7812d0a5",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        944,
+        848
+      ],
+      "id": "5769b5b6-4cf4-4b57-a906-5f08ff6946f2",
+      "name": "HTML"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\nreturn [\n  {\n    json: {\n      token: data.accessToken || data.access_token || data.token || data?.data?.accessToken || data?.data?.access_token\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        944,
+        1536
+      ],
+      "id": "7daf148c-f61d-4558-9c91-b85f47e226bb",
+      "name": "token"
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputItem = $input.first();\nconst tokenRecebido = inputItem.json.token;\n\nconst keywords = [\n  'construcao',\n  'montagem', \n  'manutencao',\n  'tubulacao', \n  'Tubulação',\n  'gates', \n  'skid', \n  'aquecedor', \n  'filtragem',\n  'regulagem', \n  'medicao', \n  'conjuntos',\n  'vazao', \n  'pressao', \n  'transmissores',\n  'transdutores', \n  'medidores',\n  'cromatografos',\n  'cromatógrafo', \n  'valvulas'\n];\n\nreturn keywords.map(termo => ({ \n  json: { \n    query: termo,\n    token: tokenRecebido\n  },\n  pairedItem: {\n    item: 0\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        1536
+      ],
+      "id": "67ae8ec6-55c1-4f51-8dd2-841f7e83927a",
+      "name": "Palavras Chave"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        2080,
+        1408
+      ],
+      "id": "92660a54-7f73-4245-aef6-dc3cd4036747",
+      "name": "Convert to File1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rc4nmhja42.execute-api.us-east-1.amazonaws.com/v1/oportunidade-publica/aberta/auth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"username\": \"fts.petronect@ftsservicos.com\",\n  \"password\": \"Ftfts2@@@\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        736,
+        1536
+      ],
+      "id": "f06b3172-2502-49f7-b752-6d41189f1d22",
+      "name": "Token Petronect"
+    },
+    {
+      "parameters": {
+        "url": "https://rc4nmhja42.execute-api.us-east-1.amazonaws.com/v1/oportunidade-publica/aberta/all",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.query }}"
+            },
+            {
+              "name": "onlyNew",
+              "value": "={{ true }}"
+            },
+            {
+              "name": "isExactTerm",
+              "value": "={{ false }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$json.token}}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1600,
+        1552
+      ],
+      "id": "2ad6877b-d08f-4dbf-9a87-fc6e5fa2af8c",
+      "name": "Query Petronect",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1392,
+        1536
+      ],
+      "id": "66c7598d-8a50-459c-b35f-d1880bdaa061",
+      "name": "Loop Over Items",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2080,
+        1552
+      ],
+      "id": "e5ce4e7c-c962-45c3-abf9-c71465fc90e6",
+      "name": "Wait1",
+      "webhookId": "307ddc3f-cb6d-4b7b-94a7-c916fb0d130c"
+    },
+    {
+      "parameters": {
+        "jsCode": "// CÓDIGO OTIMIZADOR ATUALIZADO (Com as novas colunas inclusas)\nconst scoreMinimo = 4; \nconst resultadosFiltrados = [];\n\nfor (const item of $input.all()) {\n  const opport = item.json;\n  if (!opport || opport.error || Object.keys(opport).length === 0) continue;\n  \n  const listaOportunidades = Array.isArray(opport) ? opport : [opport];\n\n  for (const op of listaOportunidades) {\n    const scoreItem = parseFloat(op.score) || 0;\n\n    // Filtra única e exclusivamente pelo Score mínimo\n    if (scoreItem > scoreMinimo) {\n      resultadosFiltrados.push({ \n        json: {\n          Titulo: op.OPPORT_DESCR || \"Sem Título\",\n          Numero_Licitacao: op.OPPORT_NUM || (op.ITEMS && op.ITEMS[0] ? (op.ITEMS[0].FAMILY || op.ITEMS[0].NUM_MATERIAL || op.ITEMS[0].DESC_OBJ_CONTRAT || op.ITEMS[0].OPEN_DATE) : \"Sem Número\"),\n          Descricao: (op.ITEMS && op.ITEMS[0] && op.ITEMS[0].ITEM_DESC) || \"Sem Descrição\",\n          \n          // --- NOVAS COLUNAS ADICIONADAS AQUI ---\n          Objeto_Contratacao: (op.ITEMS && op.ITEMS[0] && op.ITEMS[0].DESC_OBJ_CONTRAT) || \"Não informado\",\n          Data_Abertura: (op.ITEMS && op.ITEMS[0] && op.ITEMS[0].OPEN_DATE) || \"Não informada\",\n          \n          Data_Encerramento: op.END_DATE || \"Não informada\",\n          Score: scoreItem\n        } \n      });\n    }\n  }\n}\n\n// --- SE ESTIVER VAZIO, ENVIA O SINAL QUE EVITA TRAVAR O LOOP ---\nif (resultadosFiltrados.length === 0) {\n  return [{ json: { semResultados: true } }];\n}\n\nreturn resultadosFiltrados;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        1552
+      ],
+      "id": "49591486-6e6a-45a6-8ef2-5e22f976de94",
+      "name": "Otimizador"
+    },
+    {
+      "parameters": {
+        "jsCode": "// CÓDIGO AGREGADOR ULTRA SIMPLIFICADO\n// Ele apenas limpa os dados que o Loop já entregou na entrada dele\n\nconst resultadosLimpos = [];\nconst vistos = new Set();\n\n// Varre as 27 linhas que já chegaram prontas no nó\nfor (const item of $input.all()) {\n  \n  // Só aceita itens que tenham um Número de Licitação (ignora os undefined e semResultados)\n  if (item.json && item.json.Numero_Licitacao && !item.json.semResultados) {\n    const idLicitacao = item.json.Numero_Licitacao;\n    \n    // Remove duplicados para não repetir linhas na planilha\n    if (!vistos.has(idLicitacao)) {\n      vistos.add(idLicitacao);\n      resultadosLimpos.push(item);\n    }\n  }\n}\n\nreturn resultadosLimpos;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        1408
+      ],
+      "id": "7798a3b3-8726-4aa7-b2a9-0bf77de92d91",
+      "name": "Agregador"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b58f4686-1622-475e-a392-92bde9614e08",
+              "leftValue": "={{ $json.Data_Encerramento }}",
+              "rightValue": "2026-06-01T00:00:00",
+              "operator": {
+                "type": "dateTime",
+                "operation": "after"
+              }
+            },
+            {
+              "id": "1846b841-e4dd-4cdb-9be3-d364deded74c",
+              "leftValue": "={{ $json.Score }}",
+              "rightValue": 7,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            },
+            {
+              "id": "878da849-e3b7-48d9-a75b-056cd35efa74",
+              "leftValue": "={{ $json.Data_Encerramento }}",
+              "rightValue": "2027-05-01T00:00:00",
+              "operator": {
+                "type": "dateTime",
+                "operation": "before"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        1856,
+        1408
+      ],
+      "id": "bf37cb6d-1735-4dae-94d6-394b39f40988",
+      "name": "Filter1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "3953478e-c340-44be-98cb-b6dc79a0e831",
+              "leftValue": "={{ $json.Etapa }}",
+              "rightValue": "\" Recebimento de Proposta\"",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        1184,
+        656
+      ],
+      "id": "addf2e38-e460-4d20-bbca-0eba2bc1c4c0",
+      "name": "Filtro SCGAS"
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Token Petronect",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Organizar Dados": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request SCGAS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Bidding Opportunities MSGAS": {
+      "main": [
+        [
+          {
+            "node": "Extract Bidding Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lista Modalidades": {
+      "main": [
+        [
+          {
+            "node": "Loop Modalidades",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combinar Empresa + Modalidade": {
+      "main": [
+        [
+          {
+            "node": "Consulta PNCP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consulta PNCP": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Modalidades": {
+      "main": [
+        [
+          {
+            "node": "Loop Empresas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Combinar Empresa + Modalidade",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Empresas": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Lista Modalidades",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Modalidades",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lista Empresas": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Empresas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Organizar Dados",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Filtro SCGAS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request SCGAS": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "token": {
+      "main": [
+        [
+          {
+            "node": "Palavras Chave",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Palavras Chave": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token Petronect": {
+      "main": [
+        [
+          {
+            "node": "token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Petronect": {
+      "main": [
+        [
+          {
+            "node": "Otimizador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Agregador",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Query Petronect",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Otimizador": {
+      "main": [
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agregador": {
+      "main": [
+        [
+          {
+            "node": "Filter1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter1": {
+      "main": [
+        [
+          {
+            "node": "Convert to File1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtro SCGAS": {
+      "main": [
+        [
+          {
+            "node": "Filter SCGAS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "pinData": {},
+  "triggerCount": 0,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
