@@ -1,5 +1,9 @@
 # 🚀 Bidding Opportunities Monitor (Pipeline n8n)
 
+![Status](https://img.shields.io/badge/Status-Em%20andamento-orange)
+![Plataforma](https://img.shields.io/badge/Plataforma-n8n-blue)
+![Linguagem](https://img.shields.io/badge/Linguagem-JavaScript-yellow)
+
 ## 📌 Sobre o Projeto
 Este projeto é um fluxo automatizado construído em **n8n** para monitorar, extrair e classificar oportunidades de licitações públicas e privadas no setor de gás e energia. O objetivo principal é eliminar o tempo gasto com buscas manuais diárias em múltiplos portais, entregando apenas os editais que possuem real aderência técnica e viabilidade de negócio.
 
